@@ -10,6 +10,9 @@
 #import "SimpleJSONParser.h"
 #import "SimpleAPIRequest.h"
 
+#define RequestTimeout 10
+
+
 @implementation APIHandler
 
 + (APIHandler *)defaultAPIHandler {
@@ -32,6 +35,38 @@
             resultHandler(isSuccess, parsedResult, error);
         }
     }];
+}
+
+// added by Changwoo, Kim
+- (void)sendAPIRequestWithURL:(NSString *)urlString method:(NSString *)method completionBlock:(void (^)(NSDictionary *responseResult))completionBlock failBlock:(void (^)(NSError *error))failBlock
+{
+    SimpleAPIRequest *apiRequest = [self buildAPIWithURL:urlString method:method];
+    [self addRequest:apiRequest];
+    
+    [apiRequest startWithCompletion:^(BOOL isSuccess, id parsedResult, NSError *error) {
+        [self.apiRequests removeObjectForKey:apiRequest.identifier];
+        
+        if (isSuccess) {
+            completionBlock(parsedResult);
+        } else {
+            failBlock(error);
+        }
+    }];
+}
+
+// added by Changwoo, Kim
+- (SimpleAPIRequest *)buildAPIWithURL:urlString method:(NSString *)method {
+    
+    NSString* encodedURLString = [urlString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+    NSURL *url = [NSURL URLWithString:encodedURLString];
+    
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:RequestTimeout];
+    [request setHTTPMethod:method];
+    
+    SimpleAPIRequest *apiRequest = [[SimpleAPIRequest alloc] initWithRequest:request parse:nil];
+    apiRequest.responseParser = [[SimpleJSONParser alloc] init];
+    
+    return apiRequest;
 }
 
 - (void)cancelIdenticalToAPIRequest:(SimpleAPIRequest *)apiRequest {
